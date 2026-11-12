@@ -1,5 +1,4 @@
 .env
-*.json
 /generate
 /cmd/generate/generate
 .idea
