@@ -63,6 +63,7 @@ dashboardv2 ではパネル本体と配置を分けて書く。`DashboardBuilder
 
 ## 開発
 
+### 環境設定
 Grafana が参照する Prometheus の URL を `.env` に書く。
 
 ```bash
@@ -75,25 +76,17 @@ PROMETHEUS_URL=http://prometheus.example:9090
 Go と podman-compose は [mise](https://mise.jdx.dev/) で `mise.toml` のバージョンを入れる。
 podman-compose は uv で独立した環境にインストールされる。
 
-```bash
-mise install
-```
-
-ダッシュボードを `dashboards/` に生成し、Grafana を起動する。
+### 動作確認用の Grafana の起動
 
 ```bash
 make dev
 ```
 
-Grafana は <http://localhost:3000> で開く。`make dev` は Docker Compose か
-podman-compose を自動で選ぶ。`COMPOSE=...` で上書きできる。ファイルプロバイダーは
-`dashboards/` を 10 秒ごとに読み直すので、ビルダーを変えたあとは `make generate` を
-実行すれば反映される。データソースや `.env` を変えたときはコンテナを再起動する。
+コンテナでgrafanaを起動する。<http://localhost:3000> で開く。
+ファイルプロバイダーが`dashboards/` を10秒ごとにリロードするが、datasourceを変えた場合には
+コンテナを再起動する。
 
-rootless Podman では、コンテナの UID 472 がバインドマウントをたどって読めなければ
-ならず、ユーザーには `/etc/subuid` の範囲が必要。確認には `setup-linux.sh` を使う。
-
-Grafana を止める。
+### Grafanaコンテナの停止
 
 ```bash
 make dev-stop
