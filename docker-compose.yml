@@ -1,0 +1,13 @@
+services:
+  grafana:
+    image: mirror.gcr.io/grafana/grafana:13.2
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - PROMETHEUS_URL=${PROMETHEUS_URL}
+    volumes:
+      # :z は Rocky の SELinux 用にマウントのラベルを付け替える。ほかの環境では影響しない。
+      - ./provisioning:/etc/grafana/provisioning:z
+      - ./dashboards:/var/lib/grafana/dashboards:z

@@ -1,0 +1,11 @@
+# 開発に使うツールのバージョンを固定する。`mise install` で入る。
+# Go は go.mod の go ディレクティブ以上にする。
+[tools]
+go = "1.27.4"
+uv = "0.13.7"
+"pipx:podman-compose" = "1.6.0"
+
+# pipx バックエンドのツールを、pipx ではなく uv(uv tool install)で入れる。
+# OS の pipx や EPEL に頼らず、バージョンを固定した uv で独立した環境に入る。
+[settings]
+pipx.uvx = true
