@@ -1,12 +1,5 @@
 .env
 *.json
-# `go build` は実行したディレクトリにバイナリを置くので、同じ `generate` が
-# どちらの場所にもできうる。
 /generate
 /cmd/generate/generate
-/.idea/.gitignore
-/.idea/go.imports.xml
-/.idea/grafana-sdk-v2-sample.iml
-/.idea/misc.xml
-/.idea/modules.xml
-/.idea/vcs.xml
+.idea
