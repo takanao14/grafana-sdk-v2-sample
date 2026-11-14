@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/grafana/grafana-foundation-sdk/go/cog"
 	"github.com/grafana/grafana-foundation-sdk/go/common"
 	"github.com/grafana/grafana-foundation-sdk/go/dashboardv2"
 	"github.com/grafana/grafana-foundation-sdk/go/prometheus"
@@ -16,15 +15,6 @@ const datasourceVariable = "datasource"
 func promQuery() *prometheus.QueryV2Builder {
 	return prometheus.NewQueryV2Builder().
 		Datasource(dashboardv2.NewDashboardv2DataQueryKindDatasourceBuilder().Name("$" + datasourceVariable))
-}
-
-// パネルのクエリに名前を振る
-func queries(qs ...cog.Builder[dashboardv2.DataQueryKind]) *dashboardv2.QueryGroupBuilder {
-	group := dashboardv2.NewQueryGroupBuilder()
-	for i, q := range qs {
-		group.Target(dashboardv2.NewTargetBuilder().RefId(string(rune('A' + i))).Query(q))
-	}
-	return group
 }
 
 // デフォルトのツールチップで全系列の値を表示する
