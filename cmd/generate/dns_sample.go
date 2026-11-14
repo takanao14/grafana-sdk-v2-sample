@@ -27,6 +27,18 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 		pdns     = `job="scrapeConfig/monitoring/pdns-auth-external"`
 	)
 
+	// 要素名。登録(Panel)と配置(WithItem)の両方でこの定数を使い、打ち間違いを防ぐ。
+	const (
+		resolverQPSElement           = "resolver-qps"
+		resolverServfailRateElement  = "resolver-servfail-rate"
+		pdnsAuthQPSElement           = "pdns-auth-qps"
+		pdnsAuthServfailRateElement  = "pdns-auth-servfail-rate"
+		resolverQueryRateElement     = "resolver-query-rate"
+		resolverResponseCodesElement = "resolver-response-codes"
+		pdnsAuthQueryRateElement     = "pdns-auth-query-rate"
+		pdnsAuthResponseCodesElement = "pdns-auth-response-codes"
+	)
+
 	// しきい値は昇順に並べる。Value: nil は「下限なし」を表す。
 	// フルサービスリゾルバと権威ではSERVER FAILの意味合いが違うとして、しきい値を変えている
 	resolverServfailRateThresholds := dashboardv2.NewThresholdsConfigBuilder().
@@ -57,10 +69,11 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 					{Value: nil, Color: "blue"},
 				})).
 			Decimals(1)).
-		Data(queries(promQuery().
-			Expr(`sum(rate(resolver_request_total{` + resolver + `}[$__rate_interval]))`).
-			Instant(true).Range(false).
-			LegendFormat("QPS")))
+		Data(dashboardv2.NewQueryGroupBuilder().
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(resolver_request_total{` + resolver + `}[$__rate_interval]))`).
+				Instant(true).Range(false).
+				LegendFormat("QPS"))))
 
 	resolverServfailRate := dashboardv2.NewPanelBuilder().
 		Id(dnsSamplePanelResolverServfailRate).
@@ -71,10 +84,11 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 			Thresholds(resolverServfailRateThresholds).
 			ColorMode(common.BigValueColorModeBackground).
 			Decimals(2)).
-		Data(queries(promQuery().
-			Expr(`100 * sum(rate(resolver_answer_rcode_servfail_total{` + resolver + `}[$__rate_interval])) / sum(rate(resolver_answer_total{` + resolver + `}[$__rate_interval]))`).
-			Instant(true).Range(false).
-			LegendFormat("SERVFAIL")))
+		Data(dashboardv2.NewQueryGroupBuilder().
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`100 * sum(rate(resolver_answer_rcode_servfail_total{` + resolver + `}[$__rate_interval])) / sum(rate(resolver_answer_total{` + resolver + `}[$__rate_interval]))`).
+				Instant(true).Range(false).
+				LegendFormat("SERVFAIL"))))
 
 	pdnsAuthQPS := dashboardv2.NewPanelBuilder().
 		Id(dnsSamplePanelPdnsAuthQPS).
@@ -89,11 +103,12 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 					{Value: nil, Color: "blue"},
 				})).
 			Decimals(1)).
-		Data(queries(promQuery().
-			Expr(`sum(rate(pdns_auth_udp_queries{` + pdns + `}[$__rate_interval]))` +
-				` + sum(rate(pdns_auth_tcp_queries{` + pdns + `}[$__rate_interval]))`).
-			Instant(true).Range(false).
-			LegendFormat("QPS")))
+		Data(dashboardv2.NewQueryGroupBuilder().
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(pdns_auth_udp_queries{` + pdns + `}[$__rate_interval]))` +
+					` + sum(rate(pdns_auth_tcp_queries{` + pdns + `}[$__rate_interval]))`).
+				Instant(true).Range(false).
+				LegendFormat("QPS"))))
 
 	pdnsAuthServfailRate := dashboardv2.NewPanelBuilder().
 		Id(dnsSamplePanelPdnsAuthServfailRate).
@@ -104,12 +119,13 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 			Thresholds(pdnsAuthServfailRateThresholds).
 			ColorMode(common.BigValueColorModeBackground).
 			Decimals(2)).
-		Data(queries(promQuery().
-			Expr(`100 * sum(rate(pdns_auth_servfail_packets{` + pdns + `}[$__rate_interval]))` +
-				` / (sum(rate(pdns_auth_udp_queries{` + pdns + `}[$__rate_interval]))` +
-				` + sum(rate(pdns_auth_tcp_queries{` + pdns + `}[$__rate_interval])))`).
-			Instant(true).Range(false).
-			LegendFormat("SERVFAIL")))
+		Data(dashboardv2.NewQueryGroupBuilder().
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`100 * sum(rate(pdns_auth_servfail_packets{` + pdns + `}[$__rate_interval]))` +
+					` / (sum(rate(pdns_auth_udp_queries{` + pdns + `}[$__rate_interval]))` +
+					` + sum(rate(pdns_auth_tcp_queries{` + pdns + `}[$__rate_interval])))`).
+				Instant(true).Range(false).
+				LegendFormat("SERVFAIL"))))
 
 	// Knot Resolverの時系列パネル
 
@@ -120,9 +136,10 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 			Unit("reqps").
 			Tooltip(defaultTooltip()).
 			Legend(defaultLegend())).
-		Data(queries(promQuery().
-			Expr(`sum by (instance) (rate(resolver_request_total{` + resolver + `}[$__rate_interval]))`).
-			LegendFormat("{{instance}}")))
+		Data(dashboardv2.NewQueryGroupBuilder().
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum by (instance) (rate(resolver_request_total{` + resolver + `}[$__rate_interval]))`).
+				LegendFormat("{{instance}}"))))
 
 	resolverResponseCodes := dashboardv2.NewPanelBuilder().
 		Id(dnsSamplePanelResolverResponseCodes).
@@ -133,19 +150,19 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 			Legend(defaultLegend()).
 			FillOpacity(10).
 			Stacking(common.NewStackingConfigBuilder().Mode(common.StackingModeNormal))).
-		Data(queries(
-			promQuery().
-				Expr(`sum(rate(resolver_answer_rcode_noerror_total{`+resolver+`}[$__rate_interval]))`).
-				LegendFormat("NOERROR"),
-			promQuery().
-				Expr(`sum(rate(resolver_answer_rcode_nodata_total{`+resolver+`}[$__rate_interval]))`).
-				LegendFormat("NODATA"),
-			promQuery().
-				Expr(`sum(rate(resolver_answer_rcode_nxdomain_total{`+resolver+`}[$__rate_interval]))`).
-				LegendFormat("NXDOMAIN"),
-			promQuery().
-				Expr(`sum(rate(resolver_answer_rcode_servfail_total{`+resolver+`}[$__rate_interval]))`).
-				LegendFormat("SERVFAIL")))
+		Data(dashboardv2.NewQueryGroupBuilder().
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(resolver_answer_rcode_noerror_total{` + resolver + `}[$__rate_interval]))`).
+				LegendFormat("NOERROR"))).
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(resolver_answer_rcode_nodata_total{` + resolver + `}[$__rate_interval]))`).
+				LegendFormat("NODATA"))).
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(resolver_answer_rcode_nxdomain_total{` + resolver + `}[$__rate_interval]))`).
+				LegendFormat("NXDOMAIN"))).
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(resolver_answer_rcode_servfail_total{` + resolver + `}[$__rate_interval]))`).
+				LegendFormat("SERVFAIL"))))
 
 	// PowerDNSの時系列パネル
 
@@ -156,13 +173,13 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 			Unit("reqps").
 			Tooltip(defaultTooltip()).
 			Legend(defaultLegend())).
-		Data(queries(
-			promQuery().
-				Expr(`rate(pdns_auth_udp_queries{`+pdns+`}[$__rate_interval])`).
-				LegendFormat("{{instance}} UDP"),
-			promQuery().
-				Expr(`rate(pdns_auth_tcp_queries{`+pdns+`}[$__rate_interval])`).
-				LegendFormat("{{instance}} TCP")))
+		Data(dashboardv2.NewQueryGroupBuilder().
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`rate(pdns_auth_udp_queries{` + pdns + `}[$__rate_interval])`).
+				LegendFormat("{{instance}} UDP"))).
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`rate(pdns_auth_tcp_queries{` + pdns + `}[$__rate_interval])`).
+				LegendFormat("{{instance}} TCP"))))
 
 	pdnsAuthResponseCodes := dashboardv2.NewPanelBuilder().
 		Id(dnsSamplePanelPdnsAuthResponseCodes).
@@ -186,19 +203,19 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 			Override(dashboardv2.MatcherConfig{Id: "byName", Options: "REFUSED"}, []dashboardv2.DynamicConfigValue{
 				{Id: "color", Value: map[string]any{"mode": "fixed", "fixedColor": "orange"}},
 			})).
-		Data(queries(
-			promQuery().
-				Expr(`sum(rate(pdns_auth_noerror_packets{`+pdns+`}[$__rate_interval]))`).
-				LegendFormat("NOERROR"),
-			promQuery().
-				Expr(`sum(rate(pdns_auth_nxdomain_packets{`+pdns+`}[$__rate_interval]))`).
-				LegendFormat("NXDOMAIN"),
-			promQuery().
-				Expr(`sum(rate(pdns_auth_servfail_packets{`+pdns+`}[$__rate_interval]))`).
-				LegendFormat("SERVFAIL"),
-			promQuery().
-				Expr(`sum(rate(pdns_auth_refused_packets{`+pdns+`}[$__rate_interval]))`).
-				LegendFormat("REFUSED")))
+		Data(dashboardv2.NewQueryGroupBuilder().
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(pdns_auth_noerror_packets{` + pdns + `}[$__rate_interval]))`).
+				LegendFormat("NOERROR"))).
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(pdns_auth_nxdomain_packets{` + pdns + `}[$__rate_interval]))`).
+				LegendFormat("NXDOMAIN"))).
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(pdns_auth_servfail_packets{` + pdns + `}[$__rate_interval]))`).
+				LegendFormat("SERVFAIL"))).
+			Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+				Expr(`sum(rate(pdns_auth_refused_packets{` + pdns + `}[$__rate_interval]))`).
+				LegendFormat("REFUSED"))))
 
 	// ダッシュボードを組み立てる
 	d, err := dashboardv2.NewDashboardBuilder("DNS Sample").
@@ -210,14 +227,14 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 			Label("Datasource").
 			PluginId("prometheus")).
 		// パネルを定義
-		Panel("resolver-qps", resolverQPS).
-		Panel("resolver-servfail-rate", resolverServfailRate).
-		Panel("pdns-auth-qps", pdnsAuthQPS).
-		Panel("pdns-auth-servfail-rate", pdnsAuthServfailRate).
-		Panel("resolver-query-rate", resolverQueryRate).
-		Panel("resolver-response-codes", resolverResponseCodes).
-		Panel("pdns-auth-query-rate", pdnsAuthQueryRate).
-		Panel("pdns-auth-response-codes", pdnsAuthResponseCodes).
+		Panel(resolverQPSElement, resolverQPS).
+		Panel(resolverServfailRateElement, resolverServfailRate).
+		Panel(pdnsAuthQPSElement, pdnsAuthQPS).
+		Panel(pdnsAuthServfailRateElement, pdnsAuthServfailRate).
+		Panel(resolverQueryRateElement, resolverQueryRate).
+		Panel(resolverResponseCodesElement, resolverResponseCodes).
+		Panel(pdnsAuthQueryRateElement, pdnsAuthQueryRate).
+		Panel(pdnsAuthResponseCodesElement, pdnsAuthResponseCodes).
 		// レイアウトを定義
 		RowsLayout(dashboardv2.NewRowsBuilder().
 			Row(dashboardv2.NewRowBuilder().
@@ -226,26 +243,26 @@ func buildDnsSample() (*dashboardv2.Dashboard, error) {
 					MaxColumnCount(4).
 					ColumnWidthMode(dashboardv2.AutoGridLayoutSpecColumnWidthModeNarrow).
 					RowHeightMode(dashboardv2.AutoGridLayoutSpecRowHeightModeShort).
-					WithItem("resolver-qps").
-					WithItem("resolver-servfail-rate").
-					WithItem("pdns-auth-qps").
-					WithItem("pdns-auth-servfail-rate"))).
+					WithItem(resolverQPSElement).
+					WithItem(resolverServfailRateElement).
+					WithItem(pdnsAuthQPSElement).
+					WithItem(pdnsAuthServfailRateElement))).
 			Row(dashboardv2.NewRowBuilder().
 				Title("Knot Resolver").
 				AutoGridLayout(dashboardv2.AutoGrid().
 					MaxColumnCount(1).
 					ColumnWidthMode(dashboardv2.AutoGridLayoutSpecColumnWidthModeStandard).
 					RowHeightMode(dashboardv2.AutoGridLayoutSpecRowHeightModeStandard).
-					WithItem("resolver-query-rate").
-					WithItem("resolver-response-codes"))).
+					WithItem(resolverQueryRateElement).
+					WithItem(resolverResponseCodesElement))).
 			Row(dashboardv2.NewRowBuilder().
 				Title("pdns-auth").
 				AutoGridLayout(dashboardv2.AutoGrid().
 					MaxColumnCount(1).
 					ColumnWidthMode(dashboardv2.AutoGridLayoutSpecColumnWidthModeStandard).
 					RowHeightMode(dashboardv2.AutoGridLayoutSpecRowHeightModeStandard).
-					WithItem("pdns-auth-query-rate").
-					WithItem("pdns-auth-response-codes")))).
+					WithItem(pdnsAuthQueryRateElement).
+					WithItem(pdnsAuthResponseCodesElement)))).
 		Build()
 	if err != nil {
 		return nil, err

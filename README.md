@@ -57,7 +57,12 @@ qpsなどの中立的な量には、1色のしきい値を設定する。指定�
 
 dashboardv2 ではパネル本体と配置を分けて書く。`DashboardBuilder.Panel(name, panel)`
 でパネルを要素名で登録し、`RowsLayout` の各行の AutoGrid から `WithItem(name)` で
-その名前を参照する。要素名はパネルタイトルを小文字・ハイフン区切りにしたものにそろえる。
+その名前を参照する。要素名はビルダー関数内の定数にして登録と参照の両方で使い、
+パネルタイトルを小文字・ハイフン区切りにした値にそろえる。タイトルを変えても要素名は変えない。
+
+クエリは `QueryGroupBuilder` と `TargetBuilder` で直接組み立てる。refId はオーバーライドや
+変換から参照するクエリにだけ `TargetBuilder.RefId` で意味のある名前を付け、それ以外は
+SDK の自動採番に任せる。データソース側のクエリ(`promQuery()`)には refId を書かない。
 
 基本的にAutoGrid をつかう。
 

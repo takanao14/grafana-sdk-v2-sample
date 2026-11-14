@@ -84,11 +84,11 @@ JSON の階層                               Go のビルダー(パッケージ.
     ├── timeSettings                      dashboardv2.TimeSettingsBuilder       ← .TimeSettings(...)
     ├── variables[] DatasourceVariable    dashboardv2.DatasourceVariableBuilder ← .DatasourceVariable(...)
     ├── elements
-    │   └── "resolver-qps" Panel          dashboardv2.PanelBuilder              ← .Panel("resolver-qps", ...)
+    │   └── "resolver-qps" Panel          dashboardv2.PanelBuilder              ← .Panel(resolverQPSElement, ...)
     │       └── spec (id, title)                                                  .Id(...), .Title(...)
-    │           ├── data QueryGroup       dashboardv2.QueryGroupBuilder         ← .Data(queries(...))
-    │           │   └── queries[] PanelQuery
-    │           │                         dashboardv2.TargetBuilder             ← .Target(...)(queries が作る)
+    │           ├── data QueryGroup       dashboardv2.QueryGroupBuilder         ← .Data(...)
+    │           │   └── queries[] PanelQuery (refId)
+    │           │                         dashboardv2.TargetBuilder             ← .Target(...)
     │           │       └── query DataQuery
     │           │                         prometheus.QueryV2Builder             ← .Query(promQuery()...)
     │           │           ├── datasource
@@ -113,7 +113,7 @@ JSON の階層                               Go のビルダー(パッケージ.
                         └── spec (maxColumnCount など)                            .MaxColumnCount(...)
                             └── items[] AutoGridLayoutItem
                                 └── spec
-                                    └── element ElementReference (name)          .WithItem("resolver-qps")
+                                    └── element ElementReference (name)          .WithItem(resolverQPSElement)
 ```
 
 読み方の要点は次のとおり。
@@ -131,6 +131,8 @@ JSON の階層                               Go のビルダー(パッケージ.
   別に持つので、`layout` が 2 段になる。
 - **パネルは 2 か所に現れる**:本体は `elements` に `PanelBuilder` として、配置は `items[]` に
   要素名だけで現れる。両者は `.Panel(名前, ...)` と `.WithItem(名前)` の同じ名前でつながる。
+- **クエリは 2 段に包まれる**:`TargetBuilder`(パネルのクエリ。refId を持つ)の中に、
+  データソースごとのクエリ(`prometheus.QueryV2Builder`)が入る。
 
 ### 2.2 キーごとの対応表
 
@@ -145,11 +147,11 @@ JSON の階層                               Go のビルダー(パッケージ.
 | `spec.title`・`tags` | `NewDashboardBuilder("DNS Sample")`・`.Tags(...)` |
 | `spec.timeSettings` | `.TimeSettings(dashboardv2.NewTimeSettingsBuilder()...)` |
 | `spec.variables[]` | `.DatasourceVariable(dashboardv2.NewDatasourceVariableBuilder(...))` |
-| `spec.elements["resolver-qps"]` | `.Panel("resolver-qps", resolverQPS)` |
+| `spec.elements["resolver-qps"]` | `.Panel(resolverQPSElement, resolverQPS)` |
 | `spec.layout`(`RowsLayout`) | `.RowsLayout(dashboardv2.NewRowsBuilder()...)` |
 | `layout.spec.rows[]`(`RowsLayoutRow`) | `.Row(dashboardv2.NewRowBuilder().Title(...))` |
 | `rows[].spec.layout`(`AutoGridLayout`) | `.AutoGridLayout(dashboardv2.AutoGrid().MaxColumnCount(...)...)` |
-| `AutoGridLayout.spec.items[].spec.element.name` | `.WithItem("resolver-qps")` |
+| `AutoGridLayout.spec.items[].spec.element.name` | `.WithItem(resolverQPSElement)` |
 
 **パネル(`elements` の 1 つ)**
 
@@ -161,7 +163,9 @@ JSON の階層                               Go のビルダー(パッケージ.
 | `vizConfig.spec.fieldConfig.defaults.custom.stacking` | `.Stacking(...)` |
 | `vizConfig.spec.fieldConfig.overrides[]` | `.Override(matcher, properties)` |
 | `vizConfig.spec.options.colorMode`・`tooltip`・`legend` | `.ColorMode(...)`・`.Tooltip(...)`・`.Legend(...)` |
-| `data.spec.queries[].spec.refId` | `queries(...)` が A、B、… を振る |
+| `data.spec`(`QueryGroup`) | `.Data(dashboardv2.NewQueryGroupBuilder()...)` |
+| `data.spec.queries[]`(`PanelQuery`) | `.Target(dashboardv2.NewTargetBuilder().Query(...))` |
+| `data.spec.queries[].spec.refId` | 省略すると SDK が `query-0`、`query-1`、… を振る |
 | `data.spec.queries[].spec.query.datasource.name` | `promQuery()` が `$datasource` を入れる |
 | `data.spec.queries[].spec.query.spec.expr`・`legendFormat` | `.Expr(...)`・`.LegendFormat(...)` |
 
@@ -177,7 +181,7 @@ JSON の階層                               Go のビルダー(パッケージ.
 
 [`cmd/generate/dns_sample.go`](../cmd/generate/dns_sample.go) は次の順に並んでいる。
 
-### 3.1 パネル ID とセレクター
+### 3.1 パネル ID・セレクター・要素名
 
 ```go
 const (
@@ -196,6 +200,16 @@ const (
 ```
 
 PromQL で対象を絞り込むラベルセレクター。作者の環境の job 名なので、試すときは書き換える。
+
+```go
+const (
+	resolverQPSElement = "resolver-qps"
+	// ...
+)
+```
+
+`elements` での要素名。パネルの登録と配置の両方でこの定数を使うので、片方だけ打ち間違える
+ことがない。タイトルを変えても要素名は変えない。
 
 ### 3.2 しきい値
 
@@ -225,24 +239,32 @@ resolverQPS := dashboardv2.NewPanelBuilder().
 		Unit("reqps").
 		Thresholds(/* ... */).
 		Decimals(1)).
-	Data(queries(promQuery().
-		Expr(`sum(rate(resolver_request_total{` + resolver + `}[$__rate_interval]))`).
-		Instant(true).Range(false).
-		LegendFormat("QPS")))
+	Data(dashboardv2.NewQueryGroupBuilder().
+		Target(dashboardv2.NewTargetBuilder().Query(promQuery().
+			Expr(`sum(rate(resolver_request_total{` + resolver + `}[$__rate_interval]))`).
+			Instant(true).Range(false).
+			LegendFormat("QPS"))))
 ```
 
+- `Data` には、パネルのクエリの集まり(`QueryGroupBuilder`)を渡す。1 つのクエリは
+  `TargetBuilder` で包み、その中にデータソースのクエリ(`promQuery()`)を入れる。
 - `stat` パネルは現在値を 1 つ表示する。`Instant(true).Range(false)` で、期間全体ではなく
   最新の 1 点だけを取得する。
 - `timeseries` パネルは推移をグラフにする。応答コードのパネルは `Stacking` で積み上げ、
   `Override` で凡例名ごとに色を固定している。
-- 1 つのパネルに複数のクエリを渡すと、それぞれが 1 本の系列になる。
+- `Target` を重ねると、それぞれのクエリが系列になる。
+- refId はパネル内でクエリを見分ける名前。どこからも参照しないクエリでは書かず、SDK が振る
+  `query-0`、`query-1`、… に任せる。オーバーライドや変換から参照するクエリにだけ、
+  `NewTargetBuilder().RefId("SERVFAIL")` のように意味のある名前を付ける。
+  `promQuery().RefId(...)` には書かない。Grafana は `Target` 側の refId を使うので、
+  内側にも書くと重複するうえ、外側の値を上書きしてしまうことがある。
 
 ### 3.4 登録と配置
 
 ```go
 d, err := dashboardv2.NewDashboardBuilder("DNS Sample").
 	DatasourceVariable(/* ... */).
-	Panel("resolver-qps", resolverQPS).
+	Panel(resolverQPSElement, resolverQPS).
 	// ...
 	RowsLayout(dashboardv2.NewRowsBuilder().
 		Row(dashboardv2.NewRowBuilder().
@@ -250,15 +272,16 @@ d, err := dashboardv2.NewDashboardBuilder("DNS Sample").
 			AutoGridLayout(dashboardv2.AutoGrid().
 				MaxColumnCount(4).
 				// ...
-				WithItem("resolver-qps"))).
+				WithItem(resolverQPSElement))).
 		// ...
 	).
 	Build()
 ```
 
 - `Panel(name, panel)` が JSON の `elements` に、`RowsLayout` が `layout` に対応する。
-- `WithItem(name)` は `Panel` で付けた要素名を参照する。名前を間違えると
-  `validateDashboard` がエラーにする。
+- `WithItem(name)` は `Panel` で付けた要素名を参照する。どちらも同じ定数を使うので、
+  名前の打ち間違いはコンパイルエラーになる。登録か配置を忘れると `validateDashboard` が
+  エラーにする。
 - AutoGrid は列数・列幅・行の高さだけを決め、パネルの座標は Grafana が決める。
   `WithItem` はビルダーを書き換えるので、AutoGrid は行ごとに新しく作る。
 
@@ -269,14 +292,13 @@ d, err := dashboardv2.NewDashboardBuilder("DNS Sample").
 | 関数 | 展開した形 |
 |---|---|
 | `promQuery()` | `prometheus.NewQueryV2Builder().Datasource(...Name("$datasource"))` |
-| `queries(q...)` | `NewQueryGroupBuilder().Target(NewTargetBuilder().RefId("A").Query(q))` をクエリの数だけ |
 | `defaultTooltip()` | 複数系列を表示する `NewVizTooltipOptionsBuilder()` |
 | `defaultLegend()` | 下部にリスト表示する `NewVizLegendOptionsBuilder()` |
 
 - `promQuery()` が参照する `$datasource` は、ダッシュボードのデータソース変数の名前と一致して
   いなければならない。両者は定数 `datasourceVariable` を共有している。
-- refId はパネル内でクエリを見分ける名前。SDK は省略すると `query-1` のように振るが、
-  `queries()` は Grafana の画面と同じ A、B、… を振る。
+- パネルの登録・配置やクエリの包み方(`QueryGroupBuilder`・`TargetBuilder`)は、JSON の
+  構造がそのまま見えるように、ヘルパーで隠さず SDK を直接呼ぶ。
 - SDK のビルダーはミュータブルなので、helpers の関数は呼ぶたびに新しいビルダーを返す。
 
 ## 5. `validate.go`
@@ -289,7 +311,7 @@ SDK の `Validate()` は JSON の形の正しさしか見ない。
 | パネルが 1 つ以上ある | 空のダッシュボード |
 | パネル ID が正の整数で重複しない | パネルの取り違え |
 | 色付きのパネルにしきい値がある | Grafana の既定値「80 以上で赤」が黙って当たる |
-| クエリの refId がパネル内で重複しない | オーバーライドや変換の参照先の取り違え |
+| クエリの refId が空でなく、パネル内で重複しない | 明示した refId と自動で振られた refId の衝突 |
 | 配置が「行の中に AutoGrid」になっている | 想定外のレイアウト |
 | 配置の名前がすべて実在し、全パネルが 1 回ずつ置かれている | 名前の打ち間違い、配置し忘れ |
 
@@ -334,18 +356,22 @@ manifest, err := resource.NewManifestBuilder().
 
 Summary 行に「Resolver NXDOMAIN Rate」を足す例。
 
-1. `dns_sample.go` の定数に ID を足す。既存の ID と重ならない値にする。
+1. `dns_sample.go` の定数に ID と要素名を足す。ID は既存のものと重ならない値にする。
 
    ```go
    dnsSamplePanelResolverNxdomainRate = 9
    ```
 
+   ```go
+   resolverNxdomainRateElement = "resolver-nxdomain-rate"
+   ```
+
 2. パネルを作る。`resolverServfailRate` をまねて、クエリの `servfail` を `nxdomain` に変える。
    しきい値は新しく作るか、中立的な 1 色にする。
 
-3. `Panel("resolver-nxdomain-rate", resolverNxdomainRate)` で登録する。
+3. `Panel(resolverNxdomainRateElement, resolverNxdomainRate)` で登録する。
 
-4. Summary 行の AutoGrid に `WithItem("resolver-nxdomain-rate")` を足す。
+4. Summary 行の AutoGrid に `WithItem(resolverNxdomainRateElement)` を足す。
    4 列に収めたいなら `MaxColumnCount` も見直す。
 
 5. 確かめる。
