@@ -124,7 +124,7 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .mock-cap strong { color: var(--fg); font-weight: 600; }
 .m { border: 1px solid var(--line); border-radius: 4px; position: relative; }
 .m[data-ids] { cursor: pointer; }
-.m[data-ids]:hover { border-color: var(--hl-edge); }
+.m[data-ids]:hover:not(:has(.m[data-ids]:hover)) { border-color: var(--hl-edge); }
 .m.on { background: var(--hl); border-color: var(--hl-edge); box-shadow: 0 0 0 1px var(--hl-edge); }
 .m-frame { padding: 8px; display: grid; gap: 8px; background: var(--bg); }
 .m-url { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); padding: 2px 8px; justify-self: start; }
@@ -695,13 +695,10 @@ function highlight(ids, source) {
     }
     if (first && !(source && pane.contains(source))) scrollWithin(pane, first);
   }
-  // 概念図は ID ごとに最も内側の該当枠だけを強調する(外枠まで光ると何を指すか分からなくなる)
+  // 概念図は最も内側の該当枠だけを強調する(外枠まで光ると何を指すか分からなくなる)
   const boxes = [...mockEl.querySelectorAll("[data-ids]")];
-  const on = new Set();
-  for (const id of ids) {
-    const hits = boxes.filter(m => m.dataset.ids.split(" ").includes(id));
-    for (const h of hits) if (!hits.some(o => o !== h && h.contains(o))) on.add(h);
-  }
+  const hits = boxes.filter(match);
+  const on = new Set(hits.filter(h => !hits.some(o => o !== h && h.contains(o))));
   for (const m of boxes) m.classList.toggle("on", on.has(m));
 }
 
@@ -733,7 +730,7 @@ function select(id, source) {
 const mockEl = document.getElementById("mock");
 for (const m of mockEl.querySelectorAll("[data-ids]")) {
   m.tabIndex = 0;
-  m.setAttribute("role", "button");
+  m.setAttribute("role", m.querySelector("[data-ids]") ? "group" : "button");
   const id = m.dataset.ids.split(" ")[0];
   m.setAttribute("aria-label", INFO[id].title);
   const pick = e => { e.stopPropagation(); select(id); };
