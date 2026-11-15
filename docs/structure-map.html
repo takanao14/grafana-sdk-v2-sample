@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
 <style>
-/* レイアウト: 説明バーを上に固定し、その下に JSON と Go の 2 ペインを並べる(狭い画面では縦積み) */
 :root {
   --bg: #f5f6f8;
   --surface: #ffffff;
@@ -32,7 +31,7 @@
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
     --bg: #12161d; --surface: #1a2029; --fg: #e3e7ee; --muted: #9aa3b2; --line: #2b3340;
     --accent: #f0a050; --hl: #3a2a17; --hl-edge: #e08a3c; --dim: #5d6676;
     --k-key: #8ab4f0; --k-str: #7fd1a6; --k-num: #d4a0ea; --k-cmt: #6f7887; --k-fn: #f0b07a;
@@ -40,16 +39,9 @@
     color-scheme: dark;
   }
 }
-:root[data-theme="dark"] {
-  --bg: #12161d; --surface: #1a2029; --fg: #e3e7ee; --muted: #9aa3b2; --line: #2b3340;
-  --accent: #f0a050; --hl: #3a2a17; --hl-edge: #e08a3c; --dim: #5d6676;
-  --k-key: #8ab4f0; --k-str: #7fd1a6; --k-num: #d4a0ea; --k-cmt: #6f7887; --k-fn: #f0b07a;
-  --t-builder: #8ab4f0; --t-value: #7fd1a6; --t-name: #f0a050; --t-sdk: #9aa3b2; --t-helper: #d4a0ea;
-  color-scheme: dark;
-}
 * { box-sizing: border-box; }
 body {
-  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6;
 }
 .wrap {
   max-width: 1760px; margin: 0 auto;
@@ -164,7 +156,7 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .f { color: var(--k-fn); }
 .w { color: var(--k-key); font-weight: 600; }
 
-.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.8rem; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 0.8rem; color: var(--muted); }
 .legend span { display: inline-flex; gap: 6px; align-items: center; }
 .sw { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
 .sw.on { background: var(--hl); border-left: 3px solid var(--hl-edge); }
@@ -197,7 +189,6 @@ header { display: grid; gap: 8px; }
 .step-nav button:disabled { opacity: 0.4; cursor: default; }
 .step-nav button:focus-visible, .toggle input:focus-visible, .info summary:focus-visible, .m[tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .toggle { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
-.legend { align-items: center; }
 .view { display: inline-flex; gap: 4px; align-items: center; }
 .view button {
   font: inherit; font-size: 0.8rem; padding: 2px 10px; border-radius: 4px; cursor: pointer;
@@ -209,7 +200,6 @@ header { display: grid; gap: 8px; }
 .hide-sdk .ln.sdk { display: none; }
 .m-example { font-size: 0.65rem; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .ln { transition: background-color 120ms; } }
-body { margin: 0; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
 </style>
