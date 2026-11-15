@@ -29,11 +29,15 @@ follow it instead of restating it here.
   only OS packages (Podman, make) and runs `mise install`.
 - `docs/walkthrough.md`: step-by-step explanation of the code. Update it when the
   code it quotes changes.
+- `docs/structure-map.html`: single-file interactive map of the screen, Go,
+  and JSON for the `resolver-qps` panel; only its fonts load from Google Fonts.
+  Its Go and JSON excerpts are written by hand; update them when that code or
+  its generated JSON changes. `structure_map_test.go` fails when they drift.
 - `generate` and `cmd/generate/generate` are local `go build` artifacts.
 
 ## Commands
 
-- `go test ./...`: structural dashboard invariants.
+- `go test ./...`: structural dashboard invariants and structure-map excerpts.
 - `make check`: diff a fresh generation against `dashboards/`. Run it with
   `go test` after every builder change.
 - `make generate`: write JSON to `dashboards/`.
