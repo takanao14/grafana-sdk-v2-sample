@@ -29,6 +29,9 @@ follow it instead of restating it here.
   only OS packages (Podman, make) and runs `mise install`.
 - `docs/walkthrough.md`: step-by-step explanation of the code. Update it when the
   code it quotes changes.
+- `docs/structure-map.html`: self-contained interactive map of the screen, Go,
+  and JSON for the `resolver-qps` panel. Its Go and JSON excerpts are written
+  by hand; update them when that code or its generated JSON changes.
 - `generate` and `cmd/generate/generate` are local `go build` artifacts.
 
 ## Commands

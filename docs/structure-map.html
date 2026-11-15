@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>dashboardv2 構造マップ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* レイアウト: 説明バーを上に固定し、その下に JSON と Go の 2 ペインを並べる(狭い画面では縦積み) */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --fg: #1d2330;
+  --muted: #5f6878;
+  --line: #dde1e8;
+  --accent: #b5560f;
+  --hl: #fdebd3;
+  --hl-edge: #e08a3c;
+  --dim: #9aa2b1;
+  --k-key: #2457a6;
+  --k-str: #1f7a52;
+  --k-num: #8a3fa8;
+  --k-cmt: #8a919e;
+  --k-fn: #9c4a12;
+  --t-builder: #2457a6;
+  --t-value: #1f7a52;
+  --t-name: #b5560f;
+  --t-sdk: #6b7280;
+  --t-helper: #8a3fa8;
+  --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161d; --surface: #1a2029; --fg: #e3e7ee; --muted: #9aa3b2; --line: #2b3340;
+    --accent: #f0a050; --hl: #3a2a17; --hl-edge: #e08a3c; --dim: #5d6676;
+    --k-key: #8ab4f0; --k-str: #7fd1a6; --k-num: #d4a0ea; --k-cmt: #6f7887; --k-fn: #f0b07a;
+    --t-builder: #8ab4f0; --t-value: #7fd1a6; --t-name: #f0a050; --t-sdk: #9aa3b2; --t-helper: #d4a0ea;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161d; --surface: #1a2029; --fg: #e3e7ee; --muted: #9aa3b2; --line: #2b3340;
+  --accent: #f0a050; --hl: #3a2a17; --hl-edge: #e08a3c; --dim: #5d6676;
+  --k-key: #8ab4f0; --k-str: #7fd1a6; --k-num: #d4a0ea; --k-cmt: #6f7887; --k-fn: #f0b07a;
+  --t-builder: #8ab4f0; --t-value: #7fd1a6; --t-name: #f0a050; --t-sdk: #9aa3b2; --t-helper: #d4a0ea;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+}
+.wrap {
+  max-width: 1760px; margin: 0 auto;
+  padding-block: 24px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 16px;
+}
+header h1 { font-size: 1.5rem; margin: 0 0 4px; text-wrap: balance; letter-spacing: 0.01em; }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+code { font-family: var(--font-mono); font-size: 0.9em; }
+
+.tour { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tour-label { font-size: 0.75rem; letter-spacing: 0.08em; color: var(--muted); margin-right: 4px; }
+.tour button {
+  font: inherit; font-size: 0.85rem; padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer;
+}
+.tour button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 500; }
+.tour button:focus-visible, .ln[tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.info {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--hl-edge);
+  border-radius: 6px; padding: 12px 16px; display: grid; gap: 4px;
+  max-height: 40vh; overflow-y: auto;
+}
+.info-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.info h2 { font-size: 1.05rem; margin: 0; }
+.tag { font-size: 0.72rem; letter-spacing: 0.06em; padding: 1px 8px; border-radius: 4px; border: 1px solid currentColor; }
+.tag[data-t="builder"] { color: var(--t-builder); }
+.tag[data-t="value"] { color: var(--t-value); }
+.tag[data-t="name"] { color: var(--t-name); }
+.tag[data-t="sdk"] { color: var(--t-sdk); }
+.tag[data-t="helper"] { color: var(--t-helper); }
+.info p { margin: 0; max-width: 80ch; }
+.info .path { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
+
+/* 三段組み: 概念図 | Go | JSON。中くらいの幅では概念図を上に、狭い画面では縦積み */
+.panes { display: grid; grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.1fr) minmax(0, 1.1fr); gap: 12px; align-items: start; }
+@media (max-width: 1100px) {
+  .panes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .panes .mock { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) { .panes { grid-template-columns: 1fr; } }
+.pane {
+  min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  display: flex; flex-direction: column;
+}
+.pane-head {
+  display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 0.85rem; color: var(--muted);
+}
+.pane-head strong { color: var(--fg); font-weight: 600; }
+.code {
+  overflow: auto; max-height: 72vh; padding-block: 8px;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7;
+}
+@media (max-width: 900px) { .code { max-height: 60vh; font-size: 11.5px; } }
+
+/* ダッシュボードの概念モック */
+.mock {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  padding: 12px; display: grid; gap: 10px; font-size: 0.8rem; align-content: start;
+  container-type: inline-size;
+}
+@container (max-width: 420px) {
+  .m-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .m-bar .m-spacer { display: none; }
+}
+.mock-cap { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 0.8rem; }
+.mock-cap strong { color: var(--fg); font-weight: 600; }
+.m { border: 1px solid var(--line); border-radius: 4px; position: relative; }
+.m[data-ids] { cursor: pointer; }
+.m[data-ids]:hover { border-color: var(--hl-edge); }
+.m.on { background: var(--hl); border-color: var(--hl-edge); box-shadow: 0 0 0 1px var(--hl-edge); }
+.m-frame { padding: 8px; display: grid; gap: 8px; background: var(--bg); }
+.m-url { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); padding: 2px 8px; justify-self: start; }
+.m-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px; background: var(--surface); }
+.m-bar .m { padding: 2px 8px; background: var(--surface); }
+.m-bar .m.on { background: var(--hl); }
+.m-title { font-weight: 700; font-size: 0.9rem; border-color: transparent; }
+.m-spacer { flex: 1; }
+.m-layout { padding: 6px; display: grid; gap: 6px; background: var(--surface); }
+.m-row { padding: 6px; display: grid; gap: 6px; background: var(--surface); }
+.m-row-head { justify-self: start; padding: 0 6px; font-weight: 600; border-color: transparent; }
+.m-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 6px; border-style: dashed; }
+.m-grid.charts { grid-template-columns: 1fr; }
+.m-tile { padding: 6px 8px; display: grid; gap: 2px; min-width: 0; background: var(--surface); }
+.m-tile.ghost { color: var(--dim); border-style: dashed; }
+.m-tile .m { border-color: transparent; padding: 0 4px; }
+.m-tile .m.on { border-color: var(--hl-edge); }
+.m-ptitle { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-value { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 600; color: var(--t-builder); }
+.m-query { font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted); justify-self: start; }
+.m-pid { position: absolute; top: 4px; right: 4px; font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); }
+.m-key { font-family: var(--font-mono); font-size: 0.68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-chart { height: 34px; border-style: dashed; color: var(--dim); display: flex; align-items: center; padding: 0 8px; font-family: var(--font-mono); font-size: 0.68rem; }
+.m-rows-ghost { display: grid; gap: 6px; }
+@media (max-width: 560px) { .m-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ln { white-space: pre; padding: 0 12px; border-left: 3px solid transparent; min-width: max-content; }
+.ln[tabindex] { cursor: pointer; }
+.ln[tabindex]:hover { background: color-mix(in srgb, var(--hl) 45%, transparent); }
+.ln.on { background: var(--hl); border-left-color: var(--hl-edge); }
+.ln.sdk { color: var(--dim); }
+.ln.sdk .s, .ln.sdk .k, .ln.sdk .n { color: var(--dim); }
+.ln.file { color: var(--k-cmt); padding-top: 8px; }
+.k { color: var(--k-key); }
+.s { color: var(--k-str); }
+.n { color: var(--k-num); }
+.c { color: var(--k-cmt); }
+.f { color: var(--k-fn); }
+.w { color: var(--k-key); font-weight: 600; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.8rem; color: var(--muted); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.sw { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.sw.on { background: var(--hl); border-left: 3px solid var(--hl-edge); }
+.sw.sdk { background: transparent; border: 1px dashed var(--dim); }
+footer { font-size: 0.8rem; color: var(--muted); }
+
+header { display: grid; gap: 8px; }
+.flow { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.85rem; }
+.flow li { padding: 2px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.flow li + li::before { content: "→"; color: var(--muted); margin: 0 8px 0 -2px; }
+.flow li + li { border-left-width: 1px; }
+.why { font-size: 0.85rem; }
+.tour-steps { display: contents; }
+.more-label { margin-left: 8px; }
+.step-no { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+.step-no:empty { display: none; }
+.info .lead { font-weight: 500; }
+.info details { color: var(--fg); }
+.info summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; width: max-content; }
+.info details p { margin-top: 4px; }
+.terms { margin: 4px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; font-size: 0.8rem; }
+.terms:empty { display: none; }
+.terms dt { font-weight: 600; color: var(--muted); }
+.terms dd { margin: 0; color: var(--muted); }
+.step-nav { display: flex; gap: 8px; justify-content: flex-end; }
+.step-nav button {
+  font: inherit; font-size: 0.8rem; padding: 2px 10px; border-radius: 4px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer;
+}
+.step-nav button:disabled { opacity: 0.4; cursor: default; }
+.step-nav button:focus-visible, .toggle input:focus-visible, .info summary:focus-visible, .m[tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.toggle { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.legend { align-items: center; }
+.view { display: inline-flex; gap: 4px; align-items: center; }
+.view button {
+  font: inherit; font-size: 0.8rem; padding: 2px 10px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--muted);
+}
+.view button[aria-pressed="true"] { background: var(--surface); color: var(--fg); border-color: var(--hl-edge); }
+.view button:disabled { cursor: not-allowed; }
+.view button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.hide-sdk .ln.sdk { display: none; }
+.m-example { font-size: 0.65rem; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .ln { transition: background-color 120ms; } }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>dashboardv2 構造マップ</h1>
+    <p>Grafana のダッシュボードを Go のコードで作るとき、コードのどこが画面のどこになるのかを、1 つのパネルを例にたどる。画面の概念図・Go のコード・生成される JSON のどれかを選ぶと、ほかの 2 つの対応する部分が強調される。</p>
+    <ol class="flow" aria-label="処理の流れ">
+      <li>Go のコード</li><li><code>make generate</code></li><li>JSON ファイル</li><li>Grafana が読み込んで表示</li>
+    </ol>
+    <p class="why">画面上で作ったダッシュボードと違い、コードなら変更をレビューでき、同じ規約で何枚でも作れる。</p>
+  </header>
+
+  <nav class="tour" aria-label="順に見る">
+    <span class="tour-label">順に見る</span>
+    <span id="tour-steps" class="tour-steps"></span>
+    <span class="tour-label more-label">もっと詳しく</span>
+    <span id="tour-more" class="tour-steps"></span>
+  </nav>
+
+  <section class="info" aria-live="polite">
+    <div class="info-head">
+      <span class="step-no" id="info-step"></span>
+      <h2 id="info-title"></h2><span class="tag" id="info-tag"></span>
+    </div>
+    <p class="lead" id="info-lead"></p>
+    <details id="info-more">
+      <summary>詳しく</summary>
+      <p id="info-body"></p>
+      <p class="path" id="info-path"></p>
+    </details>
+    <dl class="terms" id="info-terms"></dl>
+    <div class="step-nav">
+      <button type="button" id="prev">← 前へ</button>
+      <button type="button" id="next">次へ →</button>
+    </div>
+  </section>
+
+  <div class="legend">
+    <span class="view" role="group" aria-label="表示するペイン">
+      <span class="tour-label">表示</span>
+      <button type="button" data-pane="mock" aria-pressed="true">概念図</button>
+      <button type="button" data-pane="go" aria-pressed="true">Go</button>
+      <button type="button" data-pane="json" aria-pressed="true">JSON</button>
+    </span>
+    <span><i class="sw on"></i>選択中の対応</span>
+    <label class="toggle"><input type="checkbox" id="show-sdk"> <i class="sw sdk"></i>Go では書いていない値(SDK が補う)も表示する</label>
+  </div>
+
+  <div class="panes">
+  <section class="mock pane" id="mock" aria-label="ダッシュボードの概念図">
+    <div class="mock-cap"><strong>Grafana での見え方(概念図)</strong><span>枠を選ぶとコードに対応する</span></div>
+    <div class="m m-frame" data-ids="manifest spec">
+      <span class="m m-url" data-ids="metadata">/d/dns-sample</span>
+      <div class="m-bar">
+        <span class="m m-title" data-ids="title">DNS Sample</span>
+        <span class="m" data-ids="tags">dns · sample</span>
+        <span class="m" data-ids="vars ds">Datasource ▾</span>
+        <span class="m-spacer"></span>
+        <span class="m" data-ids="time">Last 6 hours · 30s</span>
+      </div>
+      <div class="m m-layout" data-ids="rows">
+        <div class="m m-row" data-ids="row">
+          <span class="m m-row-head" data-ids="rtitle">▾ Summary</span>
+          <div class="m m-grid" data-ids="grid gridopt">
+            <div class="m m-tile" data-ids="panel item elements viz options">
+              <span class="m-pid m" data-ids="pid">#1</span>
+              <span class="m m-key" data-ids="elname">resolver-qps</span>
+              <span class="m m-ptitle" data-ids="ptitle">Resolver QPS</span>
+              <span class="m m-value" data-ids="unit decimals thr">245.3 req/s</span>
+              <span class="m-example">値は例</span>
+              <span class="m m-query" data-ids="qgroup target refid dquery ds expr instant legend">query-0 · QPS</span>
+            </div>
+            <div class="m m-tile ghost"><span class="m-key">resolver-servfail-rate</span><span>SERVFAIL Rate</span></div>
+            <div class="m m-tile ghost"><span class="m-key">pdns-auth-qps</span><span>pdns-auth QPS</span></div>
+            <div class="m m-tile ghost"><span class="m-key">pdns-auth-servfail-rate</span><span>SERVFAIL Rate</span></div>
+          </div>
+        </div>
+        <div class="m-rows-ghost">
+          <div class="m m-row"><span class="m-row-head m">▾ Knot Resolver</span>
+            <div class="m m-grid charts"><div class="m m-chart" data-ids="cursor">resolver-query-rate ┆</div><div class="m m-chart" data-ids="cursor">resolver-response-codes ┆</div></div>
+          </div>
+          <div class="m m-row"><span class="m-row-head m">▾ pdns-auth</span>
+            <div class="m m-grid charts"><div class="m m-chart" data-ids="cursor">pdns-auth-query-rate ┆</div><div class="m m-chart" data-ids="cursor">pdns-auth-response-codes ┆</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+    <section class="pane">
+      <div class="pane-head"><strong>Go のコード</strong><span>main.go・helpers.go・dns_sample.go(抜粋)</span></div>
+      <div class="code" id="go"></div>
+    </section>
+    <section class="pane">
+      <div class="pane-head"><strong>生成された JSON</strong><span>dns-sample.json(抜粋)</span></div>
+      <div class="code" id="json"></div>
+    </section>
+  </div>
+
+  <footer>JSON はキーの順序を読みやすく並べ替え、ほかのパネルは「…」で省略している。</footer>
+</div>
+
+<script>
+// 行末の ⟪id,id⟫ が対応 ID。~ は SDK が補う値。先頭が # の行はファイル名の見出し。
+const JSON_SRC = String.raw`{
+  "apiVersion": "dashboard.grafana.app/v2", ⟪manifest⟫
+  "kind": "Dashboard", ⟪manifest⟫
+  "metadata": { "name": "dns-sample" }, ⟪metadata⟫
+  "spec": { ⟪spec⟫
+    "title": "DNS Sample", ⟪title⟫
+    "tags": ["dns", "sample"], ⟪tags⟫
+    "cursorSync": "Crosshair", ⟪cursor⟫
+    "editable": true, "preload": false, "annotations": [], ⟪~⟫
+    "timeSettings": { "timezone": "browser", "from": "now-6h", "to": "now", "autoRefresh": "30s" }, ⟪time⟫
+    "variables": [ ⟪vars⟫
+      { "kind": "DatasourceVariable", ⟪vars⟫
+        "spec": { "name": "datasource", "pluginId": "prometheus", "label": "Datasource", ⟪vars⟫
+                  "refresh": "never", "multi": false, "includeAll": false } } ⟪~⟫
+    ],
+    "elements": { ⟪elements⟫
+      "resolver-qps": ⟪elname⟫
+      { "kind": "Panel", ⟪panel⟫
+        "spec": {
+          "id": 1, ⟪pid⟫
+          "title": "Resolver QPS", ⟪ptitle⟫
+          "data": { "kind": "QueryGroup", ⟪qgroup⟫
+            "spec": {
+              "queries": [
+                { "kind": "PanelQuery", ⟪target⟫
+                  "spec": {
+                    "refId": "query-0", ⟪refid⟫
+                    "hidden": false, ⟪~⟫
+                    "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", ⟪dquery⟫
+                      "datasource": { "name": "$datasource" }, ⟪ds⟫
+                      "spec": {
+                        "expr": "sum(rate(resolver_request_total{…}[$__rate_interval]))", ⟪expr⟫
+                        "instant": true, "range": false, ⟪instant⟫
+                        "legendFormat": "QPS" ⟪legend⟫
+                      } } } }
+              ],
+              "transformations": [], "queryOptions": {} ⟪~⟫
+            } },
+          "vizConfig": { "kind": "VizConfig", "group": "stat", ⟪viz⟫
+            "spec": {
+              "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", … }, ⟪options⟫
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "reqps", ⟪unit⟫
+                  "decimals": 1, ⟪decimals⟫
+                  "thresholds": { "mode": "absolute", ⟪thr⟫
+                    "steps": [ { "value": null, "color": "blue" } ] } ⟪thr⟫
+                },
+                "overrides": [] ⟪~⟫
+              } } } } },
+      "resolver-servfail-rate": { … }, …
+    },
+    "layout": { "kind": "RowsLayout", ⟪rows⟫
+      "spec": {
+        "rows": [
+          { "kind": "RowsLayoutRow", ⟪row⟫
+            "spec": {
+              "title": "Summary", ⟪rtitle⟫
+              "layout": { "kind": "AutoGridLayout", ⟪grid⟫
+                "spec": {
+                  "maxColumnCount": 4, "columnWidthMode": "narrow", "rowHeightMode": "short", ⟪gridopt⟫
+                  "fillScreen": false, ⟪~⟫
+                  "items": [
+                    { "kind": "AutoGridLayoutItem", "spec": { ⟪item⟫
+                        "element": { "kind": "ElementReference", ⟪item⟫
+                                     "name": "resolver-qps" } } }, ⟪elname⟫
+                    …
+                  ] } } } },
+          …
+        ] } }
+  }
+}`;
+
+const GO_SRC = String.raw`# main.go
+manifest, err := resource.NewManifestBuilder(). ⟪manifest⟫
+	ApiVersion("dashboard.grafana.app/v2"). ⟪manifest⟫
+	Kind("Dashboard"). ⟪manifest⟫
+	Metadata(resource.Named(uid)). // uid = "dns-sample" ⟪metadata⟫
+	Spec(d). ⟪spec⟫
+	Build()
+
+# helpers.go
+func promQuery() *prometheus.QueryV2Builder { ⟪dquery⟫
+	return prometheus.NewQueryV2Builder(). ⟪dquery⟫
+		Datasource(dashboardv2.NewDashboardv2DataQueryKindDatasourceBuilder(). ⟪ds⟫
+			Name("$" + datasourceVariable)) // datasourceVariable = "datasource" ⟪ds⟫
+}
+
+# dns_sample.go
+const (
+	resolverQPSElement = "resolver-qps" ⟪elname⟫
+	// …
+)
+
+resolverQPS := dashboardv2.NewPanelBuilder(). ⟪panel⟫
+	Id(dnsSamplePanelResolverQPS). // = 1 ⟪pid⟫
+	Title("Resolver QPS"). ⟪ptitle⟫
+	Visualization(stat.NewVisualizationV2Builder(). ⟪viz⟫
+		Unit("reqps"). ⟪unit⟫
+		Thresholds(dashboardv2.NewThresholdsConfigBuilder(). ⟪thr⟫
+			Mode(dashboardv2.ThresholdsModeAbsolute). ⟪thr⟫
+			Steps([]dashboardv2.Threshold{ ⟪thr⟫
+				{Value: nil, Color: "blue"}, ⟪thr⟫
+			})). ⟪thr⟫
+		Decimals(1)). ⟪decimals⟫
+	Data(dashboardv2.NewQueryGroupBuilder(). ⟪qgroup⟫
+		Target(dashboardv2.NewTargetBuilder().Query(promQuery(). ⟪target,refid,dquery⟫
+			Expr(` + "`sum(rate(resolver_request_total{` + resolver + `}[$__rate_interval]))`" + String.raw`). ⟪expr⟫
+			Instant(true).Range(false). ⟪instant⟫
+			LegendFormat("QPS")))) ⟪legend⟫
+
+d, err := dashboardv2.NewDashboardBuilder("DNS Sample"). ⟪spec,title⟫
+	Tags([]string{"dns", "sample"}). ⟪tags⟫
+	TimeSettings(dashboardv2.NewTimeSettingsBuilder(). ⟪time⟫
+		Timezone("browser").From("now-6h").To("now").AutoRefresh("30s")). ⟪time⟫
+	CursorSync(dashboardv2.DashboardCursorSyncCrosshair). ⟪cursor⟫
+	DatasourceVariable(dashboardv2.NewDatasourceVariableBuilder(datasourceVariable). ⟪vars⟫
+		Label("Datasource"). ⟪vars⟫
+		PluginId("prometheus")). ⟪vars⟫
+	Panel(resolverQPSElement, resolverQPS). ⟪elements,elname⟫
+	// …
+	RowsLayout(dashboardv2.NewRowsBuilder(). ⟪rows⟫
+		Row(dashboardv2.NewRowBuilder(). ⟪row⟫
+			Title("Summary"). ⟪rtitle⟫
+			AutoGridLayout(dashboardv2.AutoGrid(). ⟪grid⟫
+				MaxColumnCount(4). ⟪gridopt⟫
+				ColumnWidthMode(dashboardv2.AutoGridLayoutSpecColumnWidthModeNarrow). ⟪gridopt⟫
+				RowHeightMode(dashboardv2.AutoGridLayoutSpecRowHeightModeShort). ⟪gridopt⟫
+				WithItem(resolverQPSElement). ⟪item,elname⟫
+				// …
+		// …
+	Build()`;
+
+const T = { builder: "ビルダーを渡す", value: "値を書く", name: "名前でつなぐ", sdk: "SDK が補う", helper: "ヘルパー" };
+
+const INFO = {
+  manifest: { t: "builder", title: "外側の包み(マニフェスト)", path: "apiVersion / kind",
+    body: "Kubernetes 形式のリソースとして出力するための外枠。main.go の ManifestBuilder が付ける。ダッシュボードの中身は spec に入る。" },
+  metadata: { t: "value", title: "metadata.name(uid)", path: "metadata.name",
+    body: "ダッシュボードの uid。main.go の定数 uid を resource.Named で渡す。出力ファイル名 dns-sample.json にも同じ値を使う。" },
+  spec: { t: "builder", title: "spec = DashboardBuilder の結果", path: "spec",
+    body: "dashboardv2.NewDashboardBuilder(...).Build() で組み立てたダッシュボードが、そのまま .Spec(d) で spec に入る。" },
+  title: { t: "value", title: "ダッシュボードのタイトル", path: "spec.title",
+    body: "NewDashboardBuilder の引数がそのまま title になる。メソッドではなくコンストラクタで渡す数少ない値。" },
+  tags: { t: "value", title: "タグ", path: "spec.tags", body: ".Tags(...) が値を書き込む。" },
+  cursor: { t: "value", title: "カーソルの同期", path: "spec.cursorSync",
+    body: "Go の定数 DashboardCursorSyncCrosshair が、JSON では文字列 \"Crosshair\" になる。SDK の列挙型は JSON の文字列値と 1 対 1 に対応する。" },
+  time: { t: "builder", title: "時間範囲と自動更新", path: "spec.timeSettings",
+    body: "TimeSettingsBuilder を .TimeSettings(...) に渡すと timeSettings オブジェクトができる。ビルダーの入れ子が JSON の入れ子になる例。" },
+  vars: { t: "builder", title: "データソース変数", path: "spec.variables[]",
+    body: "画面上部でデータソースを選ぶ変数。名前 \"datasource\" は定数 datasourceVariable で、promQuery() が参照する \"$datasource\" と同じ値を共有している。" },
+  elements: { t: "builder", title: "パネルの登録先 elements", path: "spec.elements",
+    body: ".Panel(名前, パネル) を呼ぶたびに、elements に「要素名 → パネル」が 1 つ追加される。elements には並び順の情報がなく、配置は layout が持つ。" },
+  elname: { t: "name", title: "要素名 \"resolver-qps\"", path: "spec.elements のキー / items[].spec.element.name",
+    body: "JSON では 2 か所に現れる。elements のキーと、layout の ElementReference の name で、どちらも同じパネルを指す。Go ではこの文字列を定数 resolverQPSElement として 1 か所で定義し、.Panel と .WithItem の両方に渡している。" },
+  panel: { t: "builder", title: "パネル本体", path: "spec.elements[\"resolver-qps\"]",
+    body: "NewPanelBuilder() が kind: Panel のオブジェクトを作る。変数 resolverQPS に入れておき、あとで .Panel(...) に渡して登録する。" },
+  pid: { t: "value", title: "パネル ID", path: "elements[…].spec.id",
+    body: "ダッシュボード内で一意な正の整数。定数 dnsSamplePanelResolverQPS = 1。validateDashboard が重複と 0 以下を拒否する。" },
+  ptitle: { t: "value", title: "パネルのタイトル", path: "elements[…].spec.title",
+    body: "画面に出る表示名。要素名とは別物なので、タイトルを変えても要素名は変えない。" },
+  qgroup: { t: "builder", title: "クエリの集まり QueryGroup", path: "elements[…].spec.data",
+    body: ".Data(...) に QueryGroupBuilder を渡す。.Target(...) を重ねるとクエリ(系列)が増える。変換(transformations)もここに付く。" },
+  target: { t: "builder", title: "パネルのクエリ PanelQuery", path: "data.spec.queries[]",
+    body: "TargetBuilder が 1 つのクエリを包む外側の層。refId はこの層が持つ。中にデータソースごとのクエリ(DataQuery)が入る、2 段の構造になっている。" },
+  refid: { t: "sdk", title: "refId は SDK が振る", path: "queries[].spec.refId",
+    body: "Go では何も書いていない。QueryGroupBuilder.Target が、空の refId に query-0、query-1、… を順に振る。オーバーライドや変換から参照するクエリにだけ、NewTargetBuilder().RefId(\"…\") で意味のある名前を付ける。" },
+  dquery: { t: "helper", title: "データソースのクエリ DataQuery", path: "queries[].spec.query",
+    body: "prometheus.QueryV2Builder が作る内側の層。毎回同じデータソース指定を書かないよう、helpers.go の promQuery() が作って返す。group: \"prometheus\" はビルダーの種類で決まる。" },
+  ds: { t: "helper", title: "データソースの参照", path: "query.datasource.name",
+    body: "promQuery() が \"$\" + datasourceVariable を入れる。ダッシュボードの変数 datasource を参照する指定で、変数の名前と一致していないとクエリが動かない。" },
+  expr: { t: "value", title: "PromQL", path: "query.spec.expr",
+    body: ".Expr(...) が書き込む。Go ではラベルセレクターを定数 resolver として切り出し、文字列連結で埋め込んでいる。" },
+  instant: { t: "value", title: "最新の 1 点だけ取る", path: "query.spec.instant / range",
+    body: "stat パネルは現在値だけを表示するので、範囲クエリではなくインスタントクエリにする。" },
+  legend: { t: "value", title: "凡例の書式", path: "query.spec.legendFormat", body: ".LegendFormat(...) が書き込む。系列名になる。" },
+  viz: { t: "builder", title: "表示方法 VizConfig", path: "elements[…].spec.vizConfig",
+    body: "stat.NewVisualizationV2Builder() を .Visualization(...) に渡す。group: \"stat\" はビルダーのパッケージで決まる。timeseries なら timeseries パッケージを使う。" },
+  options: { t: "sdk", title: "options はパネルの種類ごとの見せ方", path: "vizConfig.spec.options",
+    body: "このパネルでは Go から何も指定しておらず、SDK の既定値が入る。colorMode の既定値が \"value\" なので値は色付きで表示される。しきい値を書かないと Grafana の既定「80 以上で赤」が当たるため、1 色のしきい値を明示している。ほかのパネルでは .ColorMode(...) などがここに書き込む。" },
+  unit: { t: "value", title: "fieldConfig.defaults の値", path: "vizConfig.spec.fieldConfig.defaults.unit",
+    body: "同じ Visualization のメソッドでも、Unit・Decimals・Thresholds は fieldConfig.defaults に入る。fieldConfig はどのパネルの種類にも共通する値の設定、options は種類ごとの見せ方の設定である。" },
+  decimals: { t: "value", title: "小数点以下の桁数", path: "fieldConfig.defaults.decimals", body: ".Decimals(1) が書き込む。fieldConfig.defaults に入る値の 1 つ。" },
+  thr: { t: "builder", title: "しきい値", path: "fieldConfig.defaults.thresholds",
+    body: "ThresholdsConfigBuilder を .Thresholds(...) に渡す。Go の Value: nil が JSON の null になり、「下限なし」の最初の段を表す。" },
+  rows: { t: "builder", title: "配置 RowsLayout", path: "spec.layout",
+    body: ".RowsLayout(...) に RowsBuilder を渡す。パネル本体(elements)とは別に、どこに並べるかだけを持つ。" },
+  row: { t: "builder", title: "行 RowsLayoutRow", path: "layout.spec.rows[]", body: ".Row(...) を重ねると行が増える。" },
+  rtitle: { t: "value", title: "行のタイトル", path: "rows[].spec.title", body: "行の見出し。" },
+  grid: { t: "builder", title: "行の中の AutoGrid", path: "rows[].spec.layout",
+    body: "行ごとに中の並べ方を別に持つので、layout が 2 段になる。AutoGrid は列数や大きさの方針だけを決め、座標は Grafana が決める。" },
+  gridopt: { t: "value", title: "AutoGrid の方針", path: "AutoGridLayout.spec",
+    body: "最大列数・列幅・行の高さ。Go の列挙型の定数が JSON では \"narrow\"・\"short\" といった文字列になる。" },
+  item: { t: "name", title: "配置の 1 項目", path: "items[]",
+    body: ".WithItem(名前) が AutoGridLayoutItem を 1 つ追加し、その中の ElementReference に要素名を書く。パネル本体は持たず、名前で elements を参照する。" },
+  sdk: { t: "sdk", title: "SDK が補う値", path: "",
+    body: "Go では指定していないが、SDK がビルド時に既定値を入れる。JSON を読むときは、自分で書いた値と区別しておくと迷わない。" },
+};
+
+// 初心者向けの順路。画面から入り、コードの細部は「もっと詳しく」に回す。
+const STEPS = [
+  { label: "全体像", t: "name", ids: ["panel", "rows"], title: "ダッシュボードは「パネル」と「配置」でできている",
+    body: "Grafana の画面は、数値やグラフを表示するパネルと、それを行と格子に並べる配置の 2 つでできている。dashboardv2 の JSON でもこの 2 つは別々の場所に書かれ、パネルの名前でつながる。Go のコードを make generate で JSON に変換し、その JSON を Grafana が読み込んで表示する。" },
+  { label: "画面の上部", t: "value", ids: ["title", "tags", "vars", "time"], title: "タイトル・変数・時間範囲",
+    body: "画面の上に出る部分は、ダッシュボード全体の設定である。Go では NewDashboardBuilder に続けてメソッドを呼び、値を 1 つずつ書き込む。Datasource は、どの Prometheus からデータを取るかを画面で選ぶための変数。" },
+  { label: "パネル 1 つ", t: "builder", ids: ["panel", "ptitle", "pid", "viz"], title: "パネルを 1 つ作る",
+    body: "NewPanelBuilder() でパネルを作り、ID・タイトル・表示方法を続けて指定する。stat は現在の値を 1 つ大きく表示する種類。作ったパネルは変数 resolverQPS に入れておき、あとでダッシュボードに登録する。" },
+  { label: "クエリ", t: "builder", ids: ["qgroup", "target", "dquery", "expr", "instant", "legend"], title: "表示するデータを取るクエリ",
+    body: "パネルに表示する値は、Prometheus への問い合わせ(PromQL)で取る。クエリは 2 段に包まれている。外側の Target はパネルの中でのクエリの名前を持ち、内側の promQuery() が実際の PromQL を持つ。" },
+  { label: "見た目", t: "value", ids: ["unit", "decimals", "thr"], title: "単位・桁数・色",
+    body: "値の単位(req/s)、小数点以下の桁数、色の段階(しきい値)を指定する。しきい値を書かないと Grafana は 80 以上を赤で表示するので、ここでは青 1 色を明示している。" },
+  { label: "配置と名前", t: "name", ids: ["elname"], title: "パネルを名前で配置する",
+    body: "パネルは .Panel(名前, パネル) でダッシュボードに登録し、配置では .WithItem(名前) でその名前を参照する。名前は定数 resolverQPSElement にまとめてあり、JSON には値の \"resolver-qps\" が 2 か所に書き出される。" },
+  { label: "外側の包み", t: "builder", ids: ["manifest", "metadata", "spec"], title: "Grafana に渡す形に包む",
+    body: "組み立てたダッシュボードは、apiVersion・kind・metadata を付けたマニフェストに包んで出力する。metadata.name がダッシュボードの uid で、画面の URL /d/dns-sample にも使われる。" },
+];
+const MORE = [["refId", "refid"], ["fieldConfig と options", "options"], ["SDK が補う値", "sdk"]];
+
+const GLOSSARY = {
+  "PromQL": "Prometheus のデータを取り出すための問い合わせ言語。",
+  "ビルダー": "New…Builder() で作り、メソッドを続けて呼んで設定を積み上げる部品。最後に Build() で完成品になる。",
+  "しきい値": "値の大きさに応じて色を変える境目。",
+  "uid": "ダッシュボードを一意に識別する名前。URL にも使われる。",
+  "refId": "パネルの中でクエリを見分ける名前。",
+  "fieldConfig": "どの種類のパネルにも共通する値の表示設定(単位・桁数・しきい値など)。",
+  "options": "パネルの種類ごとに異なる見せ方の設定。",
+  "AutoGrid": "列数と大きさの方針だけを決め、パネルの位置は Grafana に任せる配置方式。",
+  "stat": "現在の値を 1 つ大きく表示するパネルの種類。",
+  "定数": "Go の const で定義した、変わらない値。",
+  "マニフェスト": "apiVersion・kind・metadata・spec を持つ Kubernetes 形式のリソース。",
+  "変数": "画面上部で選べる値。クエリの中から $名前 で参照する。",
+  "メソッド": "ビルダーに続けて .Title(...) のように呼ぶ関数。呼ぶたびに設定が 1 つ加わる。",
+};
+
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function hiJSON(s) {
+  return s.replace(/("(?:[^"\\]|\\.)*")(\s*:)?|\b(true|false|null)\b|(-?\b\d+(?:\.\d+)?\b)|([^"\w]+|\w+)/g,
+    (m, str, colon, kw, num, other) => {
+      if (str) return `<span class="${colon ? "k" : "s"}">${esc(str)}</span>${colon ? esc(colon) : ""}`;
+      if (kw) return `<span class="n">${kw}</span>`;
+      if (num) return `<span class="n">${num}</span>`;
+      return esc(other);
+    });
+}
+function hiGo(s) {
+  return s.replace(/(\/\/.*$)|(`[^`]*`|"(?:[^"\\]|\\.)*")|\b(func|return|const|nil)\b|\b([A-Z][A-Za-z0-9]*)(?=\()|([\s\S])/g,
+    (m, cmt, str, kw, fn, other) => {
+      if (cmt) return `<span class="c">${esc(cmt)}</span>`;
+      if (str) return `<span class="s">${esc(str)}</span>`;
+      if (kw) return `<span class="w">${kw}</span>`;
+      if (fn) return `<span class="f">${fn}</span>`;
+      return esc(other);
+    });
+}
+
+function render(el, src, hi) {
+  const frag = document.createDocumentFragment();
+  for (const raw of src.split("\n")) {
+    const div = document.createElement("div");
+    div.className = "ln";
+    if (raw.startsWith("# ")) {
+      div.classList.add("file");
+      div.textContent = "// " + raw.slice(2);
+      frag.appendChild(div);
+      continue;
+    }
+    const m = raw.match(/\s*⟪([^⟫]+)⟫\s*$/);
+    let text = m ? raw.slice(0, m.index) : raw;
+    text = text.replace(/\t/g, "    ");
+    div.innerHTML = hi(text) || " ";
+    if (m) {
+      let ids = m[1].split(",");
+      if (ids[0] === "~") { ids = ["sdk"]; div.classList.add("sdk"); }
+      div.dataset.ids = ids.join(" ");
+      div.tabIndex = 0;
+      div.setAttribute("role", "button");
+      div.setAttribute("aria-label", INFO[ids[0]].title);
+      const pick = () => select(ids[0], div);
+      div.addEventListener("click", pick);
+      div.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+    }
+    frag.appendChild(div);
+  }
+  el.appendChild(frag);
+}
+
+const jsonEl = document.getElementById("json");
+const goEl = document.getElementById("go");
+render(jsonEl, JSON_SRC, hiJSON);
+render(goEl, GO_SRC, hiGo);
+
+function makeButton(parent, label, onClick) {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = label;
+  b.addEventListener("click", onClick);
+  parent.appendChild(b);
+  return b;
+}
+const stepButtons = STEPS.map((s, i) => makeButton(document.getElementById("tour-steps"), `${i + 1}. ${s.label}`, () => goStep(i)));
+const moreButtons = MORE.map(([label, id]) => {
+  const b = makeButton(document.getElementById("tour-more"), label, () => select(id));
+  b.dataset.id = id;
+  return b;
+});
+let currentStep = 0;
+const prevBtn = document.getElementById("prev");
+const nextBtn = document.getElementById("next");
+prevBtn.addEventListener("click", () => goStep(currentStep - 1));
+let inTour = true;
+nextBtn.addEventListener("click", () => goStep(inTour ? currentStep + 1 : currentStep));
+
+// 既定では SDK が補う値を隠し、自分で書く値だけを見せる
+const showSdk = document.getElementById("show-sdk");
+function applySdk() { document.body.classList.toggle("hide-sdk", !showSdk.checked); }
+try { showSdk.checked = localStorage.getItem("show-sdk") === "1"; } catch (e) {}
+applySdk();
+showSdk.addEventListener("change", () => {
+  applySdk();
+  try { localStorage.setItem("show-sdk", showSdk.checked ? "1" : "0"); } catch (e) {}
+});
+
+function scrollWithin(pane, line) {
+  // offsetTop はペインではなくページ基準になるため、矩形の差でペイン内の位置を求める
+  const offset = line.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop;
+  const top = offset - pane.clientHeight / 3;
+  pane.scrollTo({ top: Math.max(0, top), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
+// 最初の一文を要点、残りを「詳しく」に分ける
+function splitLead(text) {
+  const i = text.indexOf("。");
+  return i < 0 || i === text.length - 1 ? [text, ""] : [text.slice(0, i + 1), text.slice(i + 1)];
+}
+
+function showInfo(info, stepIndex) {
+  document.getElementById("info-step").textContent = stepIndex == null ? "" : `${stepIndex + 1} / ${STEPS.length}`;
+  document.getElementById("info-title").textContent = info.title;
+  const tag = document.getElementById("info-tag");
+  tag.textContent = T[info.t]; tag.dataset.t = info.t;
+  const [lead, rest] = splitLead(info.body);
+  document.getElementById("info-lead").textContent = lead;
+  const more = document.getElementById("info-more");
+  document.getElementById("info-body").textContent = rest;
+  document.getElementById("info-path").textContent = info.path ? "JSON の場所: " + info.path : "";
+  more.hidden = !rest && !info.path;
+  more.open = false;
+  const terms = document.getElementById("info-terms");
+  terms.replaceChildren();
+  const text = info.title + info.body;
+  for (const [term, desc] of Object.entries(GLOSSARY)) {
+    if (!text.includes(term)) continue;
+    const dt = document.createElement("dt"); dt.textContent = term;
+    const dd = document.createElement("dd"); dd.textContent = desc;
+    terms.append(dt, dd);
+  }
+}
+
+function highlight(ids, source) {
+  lastIds = ids;
+  const match = el => el.dataset.ids.split(" ").some(x => ids.includes(x));
+  for (const pane of [jsonEl, goEl]) {
+    let first = null;
+    for (const ln of pane.querySelectorAll(".ln[data-ids]")) {
+      const on = match(ln);
+      ln.classList.toggle("on", on);
+      if (on && !first && ln.offsetParent) first = ln;
+    }
+    if (first && !(source && pane.contains(source))) scrollWithin(pane, first);
+  }
+  // 概念図は ID ごとに最も内側の該当枠だけを強調する(外枠まで光ると何を指すか分からなくなる)
+  const boxes = [...mockEl.querySelectorAll("[data-ids]")];
+  const on = new Set();
+  for (const id of ids) {
+    const hits = boxes.filter(m => m.dataset.ids.split(" ").includes(id));
+    for (const h of hits) if (!hits.some(o => o !== h && h.contains(o))) on.add(h);
+  }
+  for (const m of boxes) m.classList.toggle("on", on.has(m));
+}
+
+function markButtons(stepIndex, id) {
+  stepButtons.forEach((b, i) => b.setAttribute("aria-pressed", String(i === stepIndex)));
+  for (const b of moreButtons) b.setAttribute("aria-pressed", String(b.dataset.id === id));
+  prevBtn.disabled = stepIndex == null || stepIndex <= 0;
+  nextBtn.disabled = stepIndex != null && stepIndex >= STEPS.length - 1;
+  nextBtn.textContent = stepIndex == null ? "順路に戻る →" : "次へ →";
+}
+
+function goStep(i) {
+  inTour = true;
+  currentStep = Math.max(0, Math.min(STEPS.length - 1, i));
+  const s = STEPS[currentStep];
+  showInfo(s, currentStep);
+  highlight(s.ids);
+  markButtons(currentStep, null);
+}
+
+function select(id, source) {
+  inTour = false;
+  if (id === "sdk" && !showSdk.checked) { showSdk.checked = true; applySdk(); }
+  showInfo(INFO[id], null);
+  highlight([id], source);
+  markButtons(null, id);
+}
+
+const mockEl = document.getElementById("mock");
+for (const m of mockEl.querySelectorAll("[data-ids]")) {
+  m.tabIndex = 0;
+  m.setAttribute("role", "button");
+  const id = m.dataset.ids.split(" ")[0];
+  m.setAttribute("aria-label", INFO[id].title);
+  const pick = e => { e.stopPropagation(); select(id); };
+  m.addEventListener("click", pick);
+  m.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(e); } });
+}
+
+// ペインの表示切り替え。列の組み方は、表示中のペインと並べる場所の幅から決める。
+const panesEl = document.querySelector(".panes");
+const PANES = { mock: mockEl, go: goEl.closest(".pane"), json: jsonEl.closest(".pane") };
+const viewButtons = [...document.querySelectorAll(".view button")];
+let shown = { mock: true, go: true, json: true };
+try { Object.assign(shown, JSON.parse(localStorage.getItem("panes") || "{}")); } catch (e) {}
+if (!Object.values(shown).some(Boolean)) shown = { mock: true, go: true, json: true };
+
+function layoutPanes() {
+  const visible = Object.keys(PANES).filter(k => shown[k]);
+  const w = panesEl.clientWidth;
+  PANES.mock.style.gridColumn = "auto";
+  let cols;
+  if (w < 560) cols = ["minmax(0, 1fr)"];
+  else if (visible.length === 3 && w < 1100) {
+    cols = ["minmax(0, 1fr)", "minmax(0, 1fr)"];
+    PANES.mock.style.gridColumn = "1 / -1";
+  } else cols = visible.map(k => k === "mock" ? "minmax(260px, 0.8fr)" : "minmax(0, 1.1fr)");
+  panesEl.style.gridTemplateColumns = cols.join(" ");
+}
+
+function applyPanes() {
+  for (const [k, el] of Object.entries(PANES)) el.hidden = !shown[k];
+  const count = Object.values(shown).filter(Boolean).length;
+  for (const b of viewButtons) {
+    const on = shown[b.dataset.pane];
+    b.setAttribute("aria-pressed", String(on));
+    b.disabled = on && count === 1; // 最後の 1 つは消せない
+  }
+  layoutPanes();
+}
+
+for (const b of viewButtons) {
+  b.addEventListener("click", () => {
+    shown[b.dataset.pane] = !shown[b.dataset.pane];
+    applyPanes();
+    try { localStorage.setItem("panes", JSON.stringify(shown)); } catch (e) {}
+    goStepOrRefresh();
+  });
+}
+// 表示し直したペインでも、選択中の行までスクロールさせる
+let lastIds = null;
+function goStepOrRefresh() { if (lastIds) highlight(lastIds); }
+new ResizeObserver(layoutPanes).observe(panesEl);
+applyPanes();
+
+goStep(0);
+</script>
+</body>
+</html>

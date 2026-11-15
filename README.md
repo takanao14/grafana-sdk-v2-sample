@@ -5,6 +5,7 @@ Grafana ダッシュボードを Go で定義し、その定義から dashboardv
 定義と生成物を常に一致させるための構成である。
 
 コードから Grafana に表示されるまでの処理は [docs/walkthrough.md](docs/walkthrough.md) で順に解説している。
+画面・Go のコード・JSON の対応は、ブラウザで `docs/structure-map.html` を開くと対話的にたどれる。
 
 ## ダッシュボード
 
@@ -20,6 +21,7 @@ Grafana ダッシュボードを Go で定義し、その定義から dashboardv
 - `cmd/generate/*.go`: 各ダッシュボードの定義
 - `dashboards/`: 生成された JSON(gitignore 済み)
 - `docs/walkthrough.md`: 処理の解説
+- `docs/structure-map.html`: 画面・Go・JSON の対応をたどる構造マップ(ブラウザで開く)
 - `provisioning/`: ローカル Grafana のデータソースとファイルプロバイダー
 - `docker-compose.yml`: ローカル Grafana
 - `mise.toml`: Go、uv、podman-compose のバージョン
