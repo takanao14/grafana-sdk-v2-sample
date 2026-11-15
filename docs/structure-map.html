@@ -475,7 +475,7 @@ const INFO = {
   elname: { t: "name", title: "要素名 \"resolver-qps\"", path: "spec.elements のキー / items[].spec.element.name",
     body: "JSON では 2 か所に現れる。elements のキーと、layout の ElementReference の name で、どちらも同じパネルを指す。Go ではこの文字列を定数 resolverQPSElement として 1 か所で定義し、.Panel と .WithItem の両方に渡している。" },
   panel: { t: "builder", title: "パネル本体", path: "spec.elements[\"resolver-qps\"]",
-    body: "NewPanelBuilder() が kind: Panel のオブジェクトを作る。変数 resolverQPS に入れておき、あとで .Panel(...) に渡して登録する。" },
+    body: "NewPanelBuilder() が kind: Panel のオブジェクトを作る。resolverQPS に入れておき、あとで .Panel(...) に渡して登録する。" },
   pid: { t: "value", title: "パネル ID", path: "elements[…].spec.id",
     body: "ダッシュボード内で一意な正の整数。定数 dnsSamplePanelResolverQPS = 1。validateDashboard が重複と 0 以下を拒否する。" },
   ptitle: { t: "value", title: "パネルのタイトル", path: "elements[…].spec.title",
@@ -525,7 +525,7 @@ const STEPS = [
   { label: "画面の上部", t: "value", ids: ["title", "tags", "vars", "time"], title: "タイトル・変数・時間範囲",
     body: "画面の上に出る部分は、ダッシュボード全体の設定である。Go では NewDashboardBuilder に続けてメソッドを呼び、値を 1 つずつ書き込む。Datasource は、どの Prometheus からデータを取るかを画面で選ぶための変数。" },
   { label: "パネル 1 つ", t: "builder", ids: ["panel", "ptitle", "pid", "viz"], title: "パネルを 1 つ作る",
-    body: "NewPanelBuilder() でパネルを作り、ID・タイトル・表示方法を続けて指定する。stat は現在の値を 1 つ大きく表示する種類。作ったパネルは変数 resolverQPS に入れておき、あとでダッシュボードに登録する。" },
+    body: "NewPanelBuilder() でパネルを作り、ID・タイトル・表示方法を続けて指定する。stat は現在の値を 1 つ大きく表示する種類。作ったパネルは resolverQPS に入れておき、あとでダッシュボードに登録する。" },
   { label: "クエリ", t: "builder", ids: ["qgroup", "target", "dquery", "expr", "instant", "legend"], title: "表示するデータを取るクエリ",
     body: "パネルに表示する値は、Prometheus への問い合わせ(PromQL)で取る。クエリは 2 段に包まれている。外側の Target はパネルの中でのクエリの名前を持ち、内側の promQuery() が実際の PromQL を持つ。" },
   { label: "見た目", t: "value", ids: ["unit", "decimals", "thr"], title: "単位・桁数・色",
@@ -650,27 +650,37 @@ function splitLead(text) {
   return i < 0 || i === text.length - 1 ? [text, ""] : [text.slice(0, i + 1), text.slice(i + 1)];
 }
 
+const moreEl = document.getElementById("info-more");
+const termsEl = document.getElementById("info-terms");
+let currentInfo = null;
+
+function updateTerms() {
+  if (!currentInfo) return;
+  termsEl.replaceChildren();
+  const [lead] = splitLead(currentInfo.body);
+  const text = currentInfo.title + (moreEl.open ? currentInfo.body : lead);
+  for (const [term, desc] of Object.entries(GLOSSARY)) {
+    if (!text.includes(term)) continue;
+    const dt = document.createElement("dt"); dt.textContent = term;
+    const dd = document.createElement("dd"); dd.textContent = desc;
+    termsEl.append(dt, dd);
+  }
+}
+moreEl.addEventListener("toggle", updateTerms);
+
 function showInfo(info, stepIndex) {
+  currentInfo = info;
   document.getElementById("info-step").textContent = stepIndex == null ? "" : `${stepIndex + 1} / ${STEPS.length}`;
   document.getElementById("info-title").textContent = info.title;
   const tag = document.getElementById("info-tag");
   tag.textContent = T[info.t]; tag.dataset.t = info.t;
   const [lead, rest] = splitLead(info.body);
   document.getElementById("info-lead").textContent = lead;
-  const more = document.getElementById("info-more");
   document.getElementById("info-body").textContent = rest;
   document.getElementById("info-path").textContent = info.path ? "JSON の場所: " + info.path : "";
-  more.hidden = !rest && !info.path;
-  more.open = false;
-  const terms = document.getElementById("info-terms");
-  terms.replaceChildren();
-  const text = info.title + info.body;
-  for (const [term, desc] of Object.entries(GLOSSARY)) {
-    if (!text.includes(term)) continue;
-    const dt = document.createElement("dt"); dt.textContent = term;
-    const dd = document.createElement("dd"); dd.textContent = desc;
-    terms.append(dt, dd);
-  }
+  moreEl.hidden = !rest && !info.path;
+  moreEl.open = false;
+  updateTerms();
 }
 
 function highlight(ids, source) {
