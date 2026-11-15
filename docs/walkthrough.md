@@ -69,6 +69,11 @@ flowchart LR
 旧形式(v1)ではパネルが座標付きの配列だった。v2 では本体(`elements`)と配置(`layout`)が
 分かれ、名前でつながる。この分離がコードの書き方にもそのまま表れる。
 
+上の JSON では `"resolver-qps"` が 2 回現れる。`elements` のキーと、`items[]` の
+`ElementReference` の `name` で、どちらも同じ要素を指す。Go のコードではこの文字列を
+定数 `resolverQPSElement = "resolver-qps"` として 1 か所で定義し、両方に使っている
+(3.1 を参照)。
+
 ### 2.1 階層と Go のビルダーの対応
 
 JSON の各階層は、それを作る Go のビルダーと 1 対 1 に対応する。左が JSON の階層(`kind` を
@@ -113,7 +118,8 @@ JSON の階層                               Go のビルダー(パッケージ.
                         └── spec (maxColumnCount など)                            .MaxColumnCount(...)
                             └── items[] AutoGridLayoutItem
                                 └── spec
-                                    └── element ElementReference (name)          .WithItem(resolverQPSElement)
+                                    └── element ElementReference
+                                        (name: "resolver-qps")                    .WithItem(resolverQPSElement)
 ```
 
 読み方の要点は次のとおり。
@@ -131,6 +137,7 @@ JSON の階層                               Go のビルダー(パッケージ.
   別に持つので、`layout` が 2 段になる。
 - **パネルは 2 か所に現れる**:本体は `elements` に `PanelBuilder` として、配置は `items[]` に
   要素名だけで現れる。両者は `.Panel(名前, ...)` と `.WithItem(名前)` の同じ名前でつながる。
+  図の `resolverQPSElement` は値が `"resolver-qps"` の定数で、JSON にはこの値が書き出される。
 - **クエリは 2 段に包まれる**:`TargetBuilder`(パネルのクエリ。refId を持つ)の中に、
   データソースごとのクエリ(`prometheus.QueryV2Builder`)が入る。
 
@@ -151,7 +158,7 @@ JSON の階層                               Go のビルダー(パッケージ.
 | `spec.layout`(`RowsLayout`) | `.RowsLayout(dashboardv2.NewRowsBuilder()...)` |
 | `layout.spec.rows[]`(`RowsLayoutRow`) | `.Row(dashboardv2.NewRowBuilder().Title(...))` |
 | `rows[].spec.layout`(`AutoGridLayout`) | `.AutoGridLayout(dashboardv2.AutoGrid().MaxColumnCount(...)...)` |
-| `AutoGridLayout.spec.items[].spec.element.name` | `.WithItem(resolverQPSElement)` |
+| `AutoGridLayout.spec.items[].spec.element.name`(`"resolver-qps"`) | `.WithItem(resolverQPSElement)` |
 
 **パネル(`elements` の 1 つ)**
 
