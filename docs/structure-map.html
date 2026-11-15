@@ -634,12 +634,8 @@ nextBtn.addEventListener("click", () => goStep(inTour ? currentStep + 1 : curren
 // 既定では SDK が補う値を隠し、自分で書く値だけを見せる
 const showSdk = document.getElementById("show-sdk");
 function applySdk() { document.body.classList.toggle("hide-sdk", !showSdk.checked); }
-try { showSdk.checked = localStorage.getItem("show-sdk") === "1"; } catch (e) {}
 applySdk();
-showSdk.addEventListener("change", () => {
-  applySdk();
-  try { localStorage.setItem("show-sdk", showSdk.checked ? "1" : "0"); } catch (e) {}
-});
+showSdk.addEventListener("change", applySdk);
 
 function scrollWithin(pane, line) {
   // offsetTop はペインではなくページ基準になるため、矩形の差でペイン内の位置を求める
@@ -739,9 +735,7 @@ for (const m of mockEl.querySelectorAll("[data-ids]")) {
 const panesEl = document.querySelector(".panes");
 const PANES = { mock: mockEl, go: goEl.closest(".pane"), json: jsonEl.closest(".pane") };
 const viewButtons = [...document.querySelectorAll(".view button")];
-let shown = { mock: true, go: true, json: true };
-try { Object.assign(shown, JSON.parse(localStorage.getItem("panes") || "{}")); } catch (e) {}
-if (!Object.values(shown).some(Boolean)) shown = { mock: true, go: true, json: true };
+const shown = { mock: true, go: true, json: true };
 
 function layoutPanes() {
   const visible = Object.keys(PANES).filter(k => shown[k]);
@@ -771,7 +765,6 @@ for (const b of viewButtons) {
   b.addEventListener("click", () => {
     shown[b.dataset.pane] = !shown[b.dataset.pane];
     applyPanes();
-    try { localStorage.setItem("panes", JSON.stringify(shown)); } catch (e) {}
     goStepOrRefresh();
   });
 }
