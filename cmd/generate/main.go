@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/grafana/grafana-foundation-sdk/go/dashboardv2"
 	"github.com/grafana/grafana-foundation-sdk/go/resource"
 )
 
@@ -26,17 +27,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// dashboardv2ではk8s manifest形式のjsonとして出力する
-	manifest, err := resource.NewManifestBuilder().
-		ApiVersion("dashboard.grafana.app/v2").
-		Kind("Dashboard").
-		Metadata(resource.Named(uid)).
-		Spec(d).
-		Build()
-	if err != nil {
-		log.Fatal(err)
-	}
-	data, err := json.MarshalIndent(manifest, "", "  ")
+	data, err := manifestJSON(d)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,4 +38,18 @@ func main() {
 	if err := os.WriteFile(filepath.Join(outputDir, uid+".json"), data, 0o644); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// dashboardv2ではk8s manifest形式のjsonとして出力する
+func manifestJSON(d *dashboardv2.Dashboard) ([]byte, error) {
+	manifest, err := resource.NewManifestBuilder().
+		ApiVersion("dashboard.grafana.app/v2").
+		Kind("Dashboard").
+		Metadata(resource.Named(uid)).
+		Spec(d).
+		Build()
+	if err != nil {
+		return nil, err
+	}
+	return json.MarshalIndent(manifest, "", "  ")
 }

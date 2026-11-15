@@ -69,6 +69,7 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   border-radius: 6px; padding: 12px 16px; display: grid; gap: 4px;
   max-height: 40vh; overflow-y: auto;
 }
+.info-live { display: grid; gap: 4px; }
 .info-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
 .info h2 { font-size: 1.05rem; margin: 0; }
 .tag { font-size: 0.72rem; letter-spacing: 0.06em; padding: 1px 8px; border-radius: 4px; border: 1px solid currentColor; }
@@ -80,13 +81,8 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .info p { margin: 0; max-width: 80ch; }
 .info .path { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
 
-/* 三段組み: 概念図 | Go | JSON。中くらいの幅では概念図を上に、狭い画面では縦積み */
-.panes { display: grid; grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.1fr) minmax(0, 1.1fr); gap: 12px; align-items: start; }
-@media (max-width: 1100px) {
-  .panes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .panes .mock { grid-column: 1 / -1; }
-}
-@media (max-width: 560px) { .panes { grid-template-columns: 1fr; } }
+/* 列の組み方は layoutPanes() が表示中のペインと幅から決める */
+.panes { display: grid; gap: 12px; align-items: start; }
 .pane {
   min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
   display: flex; flex-direction: column;
@@ -141,7 +137,6 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .m-key { font-family: var(--font-mono); font-size: 0.68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-chart { height: 34px; border-style: dashed; color: var(--dim); display: flex; align-items: center; padding: 0 8px; font-family: var(--font-mono); font-size: 0.68rem; }
 .m-rows-ghost { display: grid; gap: 6px; }
-@media (max-width: 560px) { .m-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ln { white-space: pre; padding: 0 12px; border-left: 3px solid transparent; min-width: max-content; }
 .ln[tabindex] { cursor: pointer; }
 .ln[tabindex]:hover { background: color-mix(in srgb, var(--hl) 45%, transparent); }
@@ -167,7 +162,6 @@ header { display: grid; gap: 8px; }
 .flow { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.85rem; }
 .flow li { padding: 2px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
 .flow li + li::before { content: "→"; color: var(--muted); margin: 0 8px 0 -2px; }
-.flow li + li { border-left-width: 1px; }
 .why { font-size: 0.85rem; }
 .tour-steps { display: contents; }
 .more-label { margin-left: 8px; }
@@ -200,7 +194,6 @@ header { display: grid; gap: 8px; }
 .hide-sdk .ln.sdk { display: none; }
 .m-example { font-size: 0.65rem; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .ln { transition: background-color 120ms; } }
-img { max-width: 100%; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -223,12 +216,14 @@ img { max-width: 100%; }
     <span id="tour-more" class="tour-steps"></span>
   </nav>
 
-  <section class="info" aria-live="polite">
-    <div class="info-head">
-      <span class="step-no" id="info-step"></span>
-      <h2 id="info-title"></h2><span class="tag" id="info-tag"></span>
+  <section class="info" aria-label="選択中の説明">
+    <div class="info-live" aria-live="polite">
+      <div class="info-head">
+        <span class="step-no" id="info-step"></span>
+        <h2 id="info-title"></h2><span class="tag" id="info-tag"></span>
+      </div>
+      <p class="lead" id="info-lead"></p>
     </div>
-    <p class="lead" id="info-lead"></p>
     <details id="info-more">
       <summary>詳しく</summary>
       <p id="info-body"></p>
@@ -615,6 +610,7 @@ const moreButtons = MORE.map(([label, id]) => {
   return b;
 });
 let currentStep = 0;
+let lastIds = null;
 const prevBtn = document.getElementById("prev");
 const nextBtn = document.getElementById("next");
 prevBtn.addEventListener("click", () => goStep(currentStep - 1));
@@ -625,7 +621,7 @@ nextBtn.addEventListener("click", () => goStep(inTour ? currentStep + 1 : curren
 const showSdk = document.getElementById("show-sdk");
 function applySdk() { document.body.classList.toggle("hide-sdk", !showSdk.checked); }
 applySdk();
-showSdk.addEventListener("change", applySdk);
+showSdk.addEventListener("change", () => { applySdk(); refreshHighlight(); });
 
 function scrollWithin(pane, line) {
   // offsetTop はペインではなくページ基準になるため、矩形の差でペイン内の位置を求める
@@ -685,10 +681,13 @@ function highlight(ids, source) {
     }
     if (first && !(source && pane.contains(source))) scrollWithin(pane, first);
   }
-  // 概念図は最も内側の該当枠だけを強調する(外枠まで光ると何を指すか分からなくなる)
+  // 概念図は ID ごとに最も内側の該当枠だけを強調する(外枠まで光ると何を指すか分からなくなる)
   const boxes = [...mockEl.querySelectorAll("[data-ids]")];
-  const hits = boxes.filter(match);
-  const on = new Set(hits.filter(h => !hits.some(o => o !== h && h.contains(o))));
+  const on = new Set();
+  for (const id of ids) {
+    const hits = boxes.filter(b => b.dataset.ids.split(" ").includes(id));
+    for (const h of hits) if (!hits.some(o => o !== h && h.contains(o))) on.add(h);
+  }
   for (const m of boxes) m.classList.toggle("on", on.has(m));
 }
 
@@ -718,14 +717,16 @@ function select(id, source) {
 }
 
 const mockEl = document.getElementById("mock");
+// 入れ子の枠はクリックだけで選べる。ボタンの入れ子を避けるため、キーボード操作は内側の枠に限る
+// (外枠に対応する項目は、コードの行と順路からキーボードで選べる)。
 for (const m of mockEl.querySelectorAll("[data-ids]")) {
-  m.tabIndex = 0;
-  m.setAttribute("role", m.querySelector("[data-ids]") ? "group" : "button");
   const id = m.dataset.ids.split(" ")[0];
   m.setAttribute("aria-label", INFO[id].title);
-  const pick = e => { e.stopPropagation(); select(id); };
-  m.addEventListener("click", pick);
-  m.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(e); } });
+  m.addEventListener("click", e => { e.stopPropagation(); select(id); });
+  if (m.querySelector("[data-ids]")) { m.setAttribute("role", "group"); continue; }
+  m.tabIndex = 0;
+  m.setAttribute("role", "button");
+  m.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(id); } });
 }
 
 // ペインの表示切り替え。列の組み方は、表示中のペインと並べる場所の幅から決める。
@@ -762,12 +763,11 @@ for (const b of viewButtons) {
   b.addEventListener("click", () => {
     shown[b.dataset.pane] = !shown[b.dataset.pane];
     applyPanes();
-    goStepOrRefresh();
+    refreshHighlight();
   });
 }
-// 表示し直したペインでも、選択中の行までスクロールさせる
-let lastIds = null;
-function goStepOrRefresh() { if (lastIds) highlight(lastIds); }
+// 表示し直したペインや、行の増減があったペインでも、選択中の行までスクロールさせる
+function refreshHighlight() { if (lastIds) highlight(lastIds); }
 new ResizeObserver(layoutPanes).observe(panesEl);
 applyPanes();
 

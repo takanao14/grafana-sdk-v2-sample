@@ -18,6 +18,7 @@ Grafana ダッシュボードを Go で定義し、その定義から dashboardv
 - `cmd/generate/main.go`: ダッシュボードの生成・検証と JSON 出力
 - `cmd/generate/helpers.go`: 何度も使うクエリ・ツールチップ・凡例の部品
 - `cmd/generate/validate*.go`: 生成したダッシュボードの不変条件
+- `cmd/generate/structure_map_test.go`: 構造マップの抜粋がコードと生成結果に一致するかの確認
 - `cmd/generate/*.go`: 各ダッシュボードの定義
 - `dashboards/`: 生成された JSON(gitignore 済み)
 - `docs/walkthrough.md`: 処理の解説
